@@ -25,7 +25,7 @@ exports.register = async (req, res) => {
       email,
       password: hashPassword,
     });
-    // await user.save();
+    await user.save();
     res.status(201).json({
       statusCode: true,
       statusText: `Created`,
@@ -42,3 +42,22 @@ exports.register = async (req, res) => {
     });
   }
 };
+
+exports.getAll = async (req,res) =>{
+  try {
+    const users = await userModel.find();
+    res.status(200).json({
+      statusCode: true,
+      statusText: `OK`,
+      message: `Users retrieved successfully`,
+      data: users,
+    });
+  } catch (error) {
+    console.log(error.message);
+    res.status(500).json({
+      statusCode: false,
+      statusText: `Internal Server Error`,
+      message: error.message,
+    });
+  }
+}
