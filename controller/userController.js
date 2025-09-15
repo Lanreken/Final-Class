@@ -61,3 +61,30 @@ exports.getAll = async (req,res) =>{
     });
   }
 }
+
+exports.getOne = async (req,res) =>{
+  try {
+    const {id} = req.params;  
+    const user = await userModel.findById(id);
+    if (!user) {
+      return res.status(404).json({
+        statusCode: false,
+        statusText: `Not Found`,
+        message: `User not found`,
+      });
+    }
+    res.status(200).json({
+      statusCode: true,
+      statusText: `OK`,
+      message: `User retrieved successfully`,
+      data: user,
+    });
+  } catch (error) {
+    console.log(error.message);
+    res.status(500).json({
+      statusCode: false,
+      statusText: `Internal Server Error`,
+      message: error.message,
+    });
+  }
+}
