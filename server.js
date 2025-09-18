@@ -3,11 +3,15 @@ const express = require("express");
 const mongoose = require("mongoose");
 const PORT = process.env.PORT || 4040;
 const userRouter = require("./routes/userRouter");
+const cors = require("cors");
+const productRouter = require("./routes/productRouter");
 
 const app = express();
-app.use(express.json());
 
-app.use("/api/v1", userRouter);
+app.use(express.json());
+app.use("/api/v1/user", userRouter);
+app.use("/api/v1/product", productRouter);
+app.use(cors());
 
 app.get("/", (req, res) => {
   res.send("Welcome to my Final Class app");
@@ -21,7 +25,7 @@ app.use((error, req, res, next) => {
       message: error.message,
     });
   }
-  next()
+  next();
 });
 
 mongoose

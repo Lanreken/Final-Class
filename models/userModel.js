@@ -7,6 +7,10 @@ const userSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    age: {
+      type: Number,
+      required: true,
+    },
     email: {
       type: String,
       required: true,
@@ -14,25 +18,23 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    phoneNumber: {
+      type: String,
+      required: true
+    },
     password: {
       type: String,
-      required: true,
-    },
-    age: {
-      type: Number,
       required: true,
     },
     profilePicture: {
       imageUrl: {
         type: String,
+        required: true,
       },
       publicId: {
         type: String,
+        required: true,
       },
-    },
-    phoneNumber: {
-      type: String,
-      required: true
     },
   },
   { timestamps: true }
