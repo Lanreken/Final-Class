@@ -12,6 +12,7 @@ exports.products = async (req, res) => {
 
     const existingProduct = await productModel.findOne({ productName: productName.toLowerCase() });
     if (existingProduct) {
+      fs.unlinkSync(file.path);
       return res.status(400).json({
         statusCode: false,
         statusText: "Bad Request",

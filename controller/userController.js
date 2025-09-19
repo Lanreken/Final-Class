@@ -2,6 +2,9 @@ const userModel = require("../models/userModel");
 const bcrypt = require("bcrypt");
 const cloudinary = require("../config/cloudinary");
 const fs = require("fs");
+const { sentMail } = require("../middleware/nodemailer");
+const { html } = require("../Email_Template/signUpTemplate");
+const { verificationPage } = require("../Email_Template/emailVerifyTemplate");
 
 exports.register = async (req, res) => {
   try {
@@ -22,14 +25,14 @@ exports.register = async (req, res) => {
     const existingEmail = await userModel.findOne({ email: email.toLowerCase() });
     const existingPhoneNumber = await userModel.findOne({ phoneNumber: phoneNumber });
 
-    if (existingEmail || existingPhoneNumber) {
-      fs.unlinkSync(file.path);
-      return res.status(400).json({
-        statusCode: false,
-        statusText: `Bad Request`,
-        message: `User already exits`,
-      });
-    }
+    // if (existingEmail || existingPhoneNumber) {
+    //   fs.unlinkSync(file.path);
+    //   return res.status(400).json({
+    //     statusCode: false,
+    //     statusText: `Bad Request`,
+    //     message: `User already exits`,
+    //   });
+    // }
 
     if (file && file.path) {
       imageUploader = await cloudinary.uploader.upload(file.path);
@@ -51,6 +54,35 @@ exports.register = async (req, res) => {
       },
     });
     await user.save();
+
+    await sentMail({
+      email: user.email,
+      subject: "Verification Mail",
+      link: `${req.protocol}://${req.get("host")}/api/v1/user/user/${user._id}/verify`,
+      html: html(`${req.protocol}://${req.get("host")}/api/v1/user/user/${user._id}/verify`, user.fullName.split(" ")[0]),
+      // text: `Hello ${user.fullName}, please verify your email.`,
+      // html: `
+
+      // <h1>Hello ${user.fullName}</h1>
+      // <p>Thank you for registering. Please verify your email.</p><br />
+      // <a href="${request.protocol}://${request.get("host")}api/v1/user/${user._id}/verify">Verify Email</a>`,
+    });
+
+    // const subject = "Verification Mail";
+    // const text = `Hello ${user.fullName}, please verify your email.`;
+    // const link = `${req.protocol}://${req.get("host")}/api/v1/user/${user._id}/verify`;
+    // const html = `
+    // <h1><em>Hello 👋 </em><br/> ${user.fullName}</h1>
+    // <p>Thank you for registering. Please verify your email by clicking the link below:</p><br />
+    // <a href="${link}">Verify Email</a>
+    // `;
+
+    // sendMail({
+    //   email: user.email,
+    //   subject,
+    //   text,
+    //   html,
+    // })
     res.status(201).json({
       statusCode: true,
       statusText: `Created`,
@@ -175,7 +207,6 @@ exports.updateUser = async (req, res) => {
   }
 };
 
-
 exports.deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -202,4 +233,64 @@ exports.deleteUser = async (req, res) => {
     });
   }
 };
-  
+
+// exports.verifyEmail = async (req, res) => {
+//   try {
+//     const checkUser = await userModel.findById(req.params.id);
+//     if (!checkUser) {
+//       return res.send(verificationPage(`${checkUser.email} Not Found`, "User not found"));
+
+//       // return res.status(404).json({
+//       //   statusCode: false,
+//       //   statusText: "Not Found",
+//       //   message: "User not found",
+//       // });
+//     }
+
+//     if (checkUser.isVerified) {
+//       return res.send(verificationPage("Email Verification", "Email is already verified"));
+
+//       // return res.status(400).json({
+//       //   statusCode: false,
+//       //   statusText: "Bad Request",
+//       //   message: "Email is already verified",
+//       // });
+//     }
+//     await userModel.findByIdAndUpdate(req.user._id, { isVerified: true }, { new: true });
+
+//     // res.redirect("https://www.google.com");
+
+//     return res.send(verificationPage("Email Verification", "Email verified successfully"));
+//     // res.status(200).json({
+//     //   statusCode: true,
+//     //   statusText: "OK",
+//     //   message: "Email verified successfully",
+//     // });
+//   } catch (error) {
+//     res.status(500).json({
+//       statusCode: false,
+//       statusText: "Internal Server Error",
+//       message: error.message,
+//     });
+//   }
+// };
+
+exports.verifyEmail = async (req, res) => {
+  try {
+    const checkUser = await userModel.findById(req.params.id);
+
+    if (!checkUser) {
+      return res.send(verificationPage("User Not Found ❌", "The user does not exist in our records."));
+    }
+
+    if (checkUser.isVerified) {
+      return res.send(verificationPage("Email Already Verified ⚠️", "Your email has already been verified."));
+    }
+
+    await userModel.findByIdAndUpdate(checkUser._id, { isVerified: true }, { new: true });
+
+    return res.send(verificationPage("Email Verification ✅", `Hello <b>${checkUser.fullName}</b>, your email has been verified successfully.`));
+  } catch (error) {
+    return res.send(verificationPage("Internal Server Error ⚠️", error.message));
+  }
+};
