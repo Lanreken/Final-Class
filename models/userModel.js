@@ -20,7 +20,7 @@ const userSchema = new mongoose.Schema(
     },
     phoneNumber: {
       type: String,
-      required: true
+      required: true,
     },
     password: {
       type: String,
@@ -35,6 +35,13 @@ const userSchema = new mongoose.Schema(
         type: String,
         required: true,
       },
+    },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    token: {
+      type: String,
     },
   },
   { timestamps: true }
