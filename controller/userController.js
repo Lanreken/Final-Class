@@ -5,6 +5,8 @@ const fs = require("fs");
 const { sentMail } = require("../middleware/nodemailer");
 const { html } = require("../Email_Template/signUpTemplate");
 const { verificationPage } = require("../Email_Template/emailVerifyTemplate");
+const jwt = require("jsonwebtoken");
+const { resetPasswordTemplate } = require("../Email_Template/resetPasswordTemplate");
 
 exports.register = async (req, res) => {
   try {
@@ -235,63 +237,233 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
-// exports.verifyEmail = async (req, res) => {
-//   try {
-//     const checkUser = await userModel.findById(req.params.id);
-//     if (!checkUser) {
-//       return res.send(verificationPage(`${checkUser.email} Not Found`, "User not found"));
-
-//       // return res.status(404).json({
-//       //   statusCode: false,
-//       //   statusText: "Not Found",
-//       //   message: "User not found",
-//       // });
-//     }
-
-//     if (checkUser.isVerified) {
-//       return res.send(verificationPage("Email Verification", "Email is already verified"));
-
-//       // return res.status(400).json({
-//       //   statusCode: false,
-//       //   statusText: "Bad Request",
-//       //   message: "Email is already verified",
-//       // });
-//     }
-//     await userModel.findByIdAndUpdate(req.user._id, { isVerified: true }, { new: true });
-
-//     // res.redirect("https://www.google.com");
-
-//     return res.send(verificationPage("Email Verification", "Email verified successfully"));
-//     // res.status(200).json({
-//     //   statusCode: true,
-//     //   statusText: "OK",
-//     //   message: "Email verified successfully",
-//     // });
-//   } catch (error) {
-//     res.status(500).json({
-//       statusCode: false,
-//       statusText: "Internal Server Error",
-//       message: error.message,
-//     });
-//   }
-// };
-
 exports.verifyEmail = async (req, res) => {
   try {
     const checkUser = await userModel.findById(req.params.id);
-
     if (!checkUser) {
-      return res.send(verificationPage("User Not Found ❌", "The user does not exist in our records."));
+      return res.status(404).json({
+        statusCode: false,
+        statusText: "Not Found",
+        message: "User not found",
+      });
     }
 
     if (checkUser.isVerified) {
-      return res.send(verificationPage("Email Already Verified ⚠️", "Your email has already been verified."));
+      return res.status(400).json({
+        statusCode: false,
+        statusText: "Bad Request",
+        message: "Email is already verified",
+      });
     }
+    await userModel.findByIdAndUpdate(req.user._id, { isVerified: true }, { new: true });
 
-    await userModel.findByIdAndUpdate(checkUser._id, { isVerified: true }, { new: true });
-
-    return res.send(verificationPage("Email Verification ✅", `Hello <b>${checkUser.fullName}</b>, your email has been verified successfully.`));
+    // res.redirect("https://www.google.com");
+    res.status(200).json({
+      statusCode: true,
+      statusText: "OK",
+      message: "Email verified successfully",
+    });
   } catch (error) {
-    return res.send(verificationPage("Internal Server Error ⚠️", error.message));
+    res.status(500).json({
+      statusCode: false,
+      statusText: "Internal Server Error",
+      message: error.message,
+    });
   }
 };
+
+// exports.verifyEmail = async (req, res) => {
+//   try {
+//     const checkUser = await userModel.findById(req.params.id);
+
+//     if (!checkUser) {
+//       return res.send(verificationPage("User Not Found ❌", "The user does not exist in our records."));
+//     }
+//     if (checkUser.isVerified) {
+//       return res.send(verificationPage("Email Already Verified ⚠️", "Your email has already been verified."));
+//     }
+//     await userModel.findByIdAndUpdate(checkUser._id, { isVerified: true }, { new: true });
+//     return res.send(verificationPage("Email Verification ✅", `Hello <b>${checkUser.fullName}</b>, your email has been verified successfully.`));
+//   } catch (error) {
+//     return res.send(verificationPage("Internal Server Error ⚠️", error.message));
+//   }
+// };
+
+exports.login = async (req, res) => {
+  try {
+    // Get email and password from request body
+    const { email, password } = req.body;
+    // Find user in database by email (converted to lowercase and trimmed)
+    const checkUser = await userModel.findOne({ email: email.toLowerCase().trim() });
+    // Compare provided password with hashed password in database
+    const checkPassword = await bcrypt.compare(password, checkUser.password);
+
+    // Return error if user not found or password doesn't match
+    if (!checkUser || !checkPassword) {
+      return res.status(400).json({
+        statusCode: false,
+        statusText: "Bad Request", 
+        message: `Invalid Credential`,
+      });
+    }
+    // Generate JWT token with user ID that expires in 2 minutes
+    const token = await jwt.sign({ id: checkUser._id }, "secretKey", { expiresIn: "2m" });
+    // Return success response with user data and token
+    res.status(200).json({
+      statusCode: true,
+      statusText: "Ok",
+      message: "Login Successfully",
+      data: checkUser,
+      token: token,
+    });
+  // Catch and handle any errors during login process
+  } catch (error) {
+    res.status(500).json({
+      statusCode: false,
+      statusText: "Internal Server Error",
+      message: error.message,
+    });
+  }
+};
+
+exports.tokenTest = async (req, res) => {
+  try {
+    // Get token from request authorization header
+    const checkToken = req.headers.authorization;
+    // Return error if no token provided
+    if (!checkToken) {
+      return res.status(401).json({ message: "Login required" });
+    }
+    // Split token to remove 'Bearer' prefix
+    const token = checkToken.split(" ")[1];
+    // Verify the JWT token
+    jwt.verify(token, "secretKey", (error, result) => {
+      if (error) {
+        // Return error if token verification fails
+        res.status(400).json({
+          statusCode: false,
+          statusText: "Bad Request",
+          message: error.message,
+        });
+      } else {
+        // Find user by ID from token payload
+        const checkUser = userModel.findById(result.id);
+        // Return error if user not found
+        if (!checkUser) {
+          return res.status(404).json({
+            statusCode: false,
+            statusText: "Not Found",
+            message: "User not found",
+          });
+        }
+        // Return success response with user data
+        return res.status(200).json({
+          statusCode: true,
+          statusText: "Ok",
+          message: `Welcome ${checkUser.fullName}, welcome back!`,
+          data: checkUser,
+        });
+      }
+    });
+  // Catch and handle any errors during token verification
+  } catch (error) {
+    return res.status(500).json({
+      statusCode: false,
+      statusText: "Internal Server Error",
+      message: error.message,
+    });
+  }
+};
+
+exports.forgetPassword = async () => {
+  try {
+    // Get email from request body
+    const { email } = req.body;
+
+    // Find user by email in database
+    const checkEmail = await userModel.findOne({ email: email.toLowerCase().trim() });
+
+    // Return error if email not found
+    if (!checkEmail) {
+      return res.status(400).json("email does not exist");
+    }
+
+    // Set up email parameters
+    const subject = "password reset verification";
+    // Generate reset token that expires in 2 minutes
+    const token = jwt.sign({ id: checkEmail._id }, "secrectKey", { expiresIn: "2m" });
+    // Create reset password link
+    const link = ` ${req.protocol}://${req.get("host")}/api/v1/reset/${checkEmail._id}`;
+
+    // Send password reset email
+    await sentMail({
+      to: email,
+      subject,
+      html: resetPasswordTemplate(link, checkEmail.fullName),
+    })
+      .then(() => {
+        console.log("mail sent");
+      })
+      .catch((e) => {
+        console.log(e);
+      });
+    // Return success message
+    res.status(200).json("check your email for further instructions");
+  // Catch and handle any errors during password reset process
+  } catch (error) {
+    res.status(500).json({
+      statusCode: false,
+      statusText: "Internal Server Error",
+      message: error.message,
+    });
+  }
+};
+
+exports.changePassword = async (req, res) => {
+  try {
+    // Get new password and confirmation from request body
+    const { newPassword, confirmPassword } = req.body;
+    // Check if passwords match
+    if (newPassword !== confirmPassword) {
+      res.status(400).json({
+        statusCode: false,
+        statusText: "Bad Request",
+        message: "Password do not match",
+      });
+    }
+    // Generate salt and hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hash = bcrypt.hash(confirmPassword, salt);
+
+    // Find user by ID from request parameters
+    const user = await userModel.findById(req.params.id);
+    console.log(user);
+    // Verify reset token
+    jwt.verify(user.token, "secrectKey", async (error, result) => {
+      if (error) {
+        // Return error if token expired
+        res.status(400).json({
+          statusCode: false,
+          statusText: "Bad Request",
+          message: "Email Expired",
+        });
+      } else {
+        // Update user password and clear reset token
+        await userModel.findByIdAndUpdate(result.id, { password: hash, token: null }, { new: true });
+        // Return success message
+        res.status(200).json({
+          statusCode: true,
+          statusText: "Ok",
+          message: "Password Successfully Changed",
+        });
+      }
+    });
+  // Catch and handle any errors during password change process
+  } catch (error) {
+    res.status(500).json({
+      statusCode: false,
+      statusText: "Internal Server Error",
+      message: error.message,
+    });
+  }
+}

@@ -5,6 +5,8 @@ const PORT = process.env.PORT || 4040;
 const userRouter = require("./routes/userRouter");
 const cors = require("cors");
 const productRouter = require("./routes/productRouter");
+const userModel = require("./models/userModel");
+const jwt = require("jsonwebtoken");
 
 const app = express();
 
@@ -13,8 +15,23 @@ app.use("/api/v1/user", userRouter);
 app.use("/api/v1/product", productRouter);
 app.use(cors());
 
-app.get("/", (req, res) => {
-  res.send("Welcome to my Final Class app");
+app.get("/", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ message: "Authorization header missing" });
+  }
+  const token = authHeader.split(" ")[1];
+  jwt.verify(token, "secretKey", (error) => {
+    if (error) {
+      return res.status(400).json({
+        message: error.message,
+      });
+    }
+    // Token is valid, respond accordingly
+    return res.status(200).json({ message: "Token is valid" });
+  });
+  // Do not log tokens in production
+  console.log("Received token:", token);
 });
 
 app.use((error, req, res, next) => {
